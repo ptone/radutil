@@ -33,19 +33,29 @@ import sys
 import os
 from subprocess import Popen, call, STDOUT, PIPE
 from sets import Set
+import shutil
 
-def _rename_or_remove_t_in_k(k,t_old,t_new='',recurse=True,remove=False):
+def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
     """internal factored function"""
     mods_made = False
+    if remove and not new:
+        raise ValueError ("No replacement name provided")
+    if new == '':
+        # implicit remove
+        remove = True
     for this_k, sub_k, these_t, these_e in walk_K(k):
-        if t_old in these_t:
+        if old.lower().endswith('k'):
+            subs = sub_k
+        elif old.lower().endswith('t'):
+            subs = these_t
+        if old in subs:
             k_file = get_full_path(this_k)
             f = open(k_file)
             lines = f.readlines()
             if remove:
-                lines = [x for x in lines if not t in x]
+                lines = [x for x in lines if not old in x]
             else:
-                lines = [x.replace(t_old,t_new) for x in lines]
+                lines = [x.replace(old,new) for x in lines]
             f.close()
             # reopen file with write permission (seeking to 0 could leave stray bytes at the end)
             f = open(k_file,'w')
@@ -62,9 +72,11 @@ def rename_t_in_k(k,t_old,t_new,recurse=True):
     if recurse is false = will only change the file in the k argument - otherwise will 
     traverse any included k files
     
+    a new name of '' is an implicit remove
+    
     returns true if changes were made
     """
-    _rename_or_remove_t_in_k(k,t_old,t_new=t_new,recurse=recurse)
+    _rename_or_remove_x_in_k(k,t_old,t_new=t_new,recurse=recurse)
 
 def remove_t_in_k(k,t,recurse=True):
     """removes occurrences of t in k or children - changes only K files
@@ -74,7 +86,31 @@ def remove_t_in_k(k,t,recurse=True):
     
     returns true if changes were made
     """
-    _rename_or_remove_t_in_k(k,t,recurse=recurse,remove=True)
+    _rename_or_remove_x_in_k(k,t,recurse=recurse,remove=True)
+
+def rename_k_in_k(k,k_old,k_new,recurse=True):
+    """renames occurrences of k in k or children - changes only K files
+
+
+    if recurse is false = will only change the file in the k argument - otherwise will 
+    traverse any included k files
+
+    a new name of '' is an implicit remove
+
+    returns true if changes were made
+    """
+    _rename_or_remove_x_in_k(k,k_old,k_new=t_new,recurse=recurse)
+
+def remove_k_in_k(k,k_old,recurse=True):
+    """removes occurrences of k in k or children - changes only K files
+
+    if recurse is false = will only change the file in the k argument - otherwise will 
+    traverse any included k files
+
+    returns true if changes were made
+    """
+    _rename_or_remove_x_in_k(k,k_old,recurse=recurse,remove=True)
+
 
 def rename_load(t,new_name,update_k=True):
     """renames transcript file and associated file storage
@@ -89,14 +125,61 @@ def rename_load(t,new_name,update_k=True):
     os.rename(f_dir,new_dir)
     if update_k:
         # update any references to the old name to point to the new name
-        swap_t(t,new_name)
+        swap(t,new_name)
 
-def swap_t(t_old,t_new):
+def init_trash():
+    # make trash directories
+    def make_if_not_exists(p):
+        if not os.path.exists(p):
+            os.makedirs(p)
+            
+    trash_dir = os.path.join(rad_dir,'trash')
+    t = os.path.join(trash_dir,'transcript')
+    f = os.path.join(trash_dir,'file')
+    k = os.path.join(trash_dir,'command')
+    make_if_not_exists(t)
+    make_if_not_exists(f)
+    make_if_not_exists(k)
+
+def empty_trash():
+    shutil.rmtree(os.path.join(rad_dir,'trash'))
+    init_trash()
+    
+def delete_load(t,update_k=True):
+    """docstring for delete_load"""
+    init_trash()
+    t_file = get_full_path(t)
+    f_dir = get_full_path(t,loc='file')
+    new_t = os.path.join(rad_dir,'trash','transcript',t)
+    new_dir = os.path.join(rad_dir,'trash','file',t)
+    os.rename(t_file,new_t)
+    os.rename(f_dir,new_dir)
+    if update_k:
+        # remove any references to the old name
+        swap(t,'') 
+        
+def undelete_load(t):
+    t_file = get_full_path(t,trash=True)
+    f_dir = get_full_path(t,loc='file',trash=True)
+    new_t = os.path.join(rad_dir,'transcript',t)
+    new_dir = os.path.join(rad_dir,'file',t)
+    os.rename(t_file,new_t)
+    os.rename(f_dir,new_dir)
+    
+def remove_load(t):
+    """remove all references to a transcript - change only command files"""
+    pass
+
+def remove_command(k):
+    """remove all references to command file - change only command files"""
+    pass
+    
+def swap(old,new):
     """replace all occurrences of old with new in all command files
     """
     mods_made = False
     for k in all_k():
-        r = rename_t_in_k(k,t_old,t_new,recurse=False)
+        r = _rename_or_remove_x_in_k(k,old,new,recurse=False)
         mods_made = mods_made or r
     return mods_made
     
@@ -237,7 +320,7 @@ def prettySize(size):
 # rad_dir = '/var/radmind/'
 rad_dir = '/Users/preston/Projects/san roque/projectsSRS/Radmind/Sample var_radmind/' 
 
-def get_full_path(partial,loc=False):
+def get_full_path(partial,loc=False,trash=False):
     """Utility function to take radmind relative path and resolve to full path"""
     # accept a full path
     if os.path.exists(partial):
@@ -248,6 +331,8 @@ def get_full_path(partial,loc=False):
         sub = 'command'
     else:
         raise ValueError("%s not a recognized radmind file type")
+    if trash:
+        sub = os.path.join('trash',sub)
     full_path = os.path.join(rad_dir,sub,partial)
     if not os.path.exists(full_path):
         raise ValueError ("%s %s not found in %s" % (sub,partial,rad_dir))
