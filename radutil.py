@@ -34,6 +34,74 @@ import os
 from subprocess import Popen, call, STDOUT, PIPE
 from sets import Set
 
+def _rename_or_remove_t_in_k(k,t_old,t_new='',recurse=True,remove=False):
+    """internal factored function"""
+    mods_made = False
+    for this_k, sub_k, these_t, these_e in walk_K(k):
+        if t_old in these_t:
+            k_file = get_full_path(this_k)
+            f = open(k_file)
+            lines = f.readlines()
+            if remove:
+                lines = [x for x in lines if not t in x]
+            else:
+                lines = [x.replace(t_old,t_new) for x in lines]
+            f.close()
+            # reopen file with write permission (seeking to 0 could leave stray bytes at the end)
+            f = open(k_file,'w')
+            f.write(''.join(lines))
+            mods_made = True
+        if not recurse:
+            break
+    return mods_made
+    
+def rename_t_in_k(k,t_old,t_new,recurse=True):
+    """renames occurrences of t in k or children - changes only K files
+    
+    
+    if recurse is false = will only change the file in the k argument - otherwise will 
+    traverse any included k files
+    
+    returns true if changes were made
+    """
+    _rename_or_remove_t_in_k(k,t_old,t_new=t_new,recurse=recurse)
+
+def remove_t_in_k(k,t,recurse=True):
+    """removes occurrences of t in k or children - changes only K files
+    
+    if recurse is false = will only change the file in the k argument - otherwise will 
+    traverse any included k files
+    
+    returns true if changes were made
+    """
+    _rename_or_remove_t_in_k(k,t,recurse=recurse,remove=True)
+
+def rename_load(t,new_name,update_k=True):
+    """renames transcript file and associated file storage
+    
+    default is to also do a find and replace of all occurences of old name in command files
+    """
+    t_file = get_full_path(t)
+    f_dir = get_full_path(t,loc='file')
+    new_t = os.path.join(os.path.dirname(t_file),new_name)
+    new_dir = os.path.join(os.path.dirname(f_dir),new_name)
+    os.rename(t_file,new_t)
+    os.rename(f_dir,new_dir)
+    if update_k:
+        # update any references to the old name to point to the new name
+        for k in all_k():
+            rename_t_in_k(k,t,new_name,recurse=False)
+
+def all_k(exclude=['index.K']):
+    """lists all k files"""
+    # todo - have a global setting for excludes so I can pull my index.K bit
+    k_dir = os.path.join(rad_dir,'command')
+    for root, dirs, files in os.walk(k_dir):
+        for f in files:
+            if f.lower().endswith('k') and not f in exclude:
+                partial = os.path.join(root,f).replace(k_dir,'').lstrip('/')
+                yield partial
+
 def sort(f,case_insensitive=True,in_place=True,outfile=None):
     """
     Sorts a transcript
@@ -150,6 +218,7 @@ def ending_ok(partial):
     return ending == '\n'
     
 def prettySize(size):
+    """convert file size to human readable form"""
     suffixes = [("B",2**10), ("K",2**20), ("M",2**30), ("G",2**40), ("T",2**50)]
     for suf, lim in suffixes:
         if size > lim:
@@ -160,16 +229,13 @@ def prettySize(size):
 # rad_dir = '/var/radmind/'
 rad_dir = '/Users/preston/Projects/san roque/projectsSRS/Radmind/Sample var_radmind/' 
 
-def get_full_path(partial,get_file=False):
+def get_full_path(partial,loc=False):
     """Utility function to take radmind relative path and resolve to full path"""
     # accept a full path
     if os.path.exists(partial):
         return partial
     if partial.upper().endswith('T'):
-        if get_file:
-            sub = 'file'
-        else:
-            sub = 'transcript'
+        sub = loc or 'transcript'
     elif partial.upper().endswith('K'):
         sub = 'command'
     else:
