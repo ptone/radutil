@@ -25,53 +25,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-functions to add:
-x sort in place
-x find file/pattern in T
-find file(s) in K (like twhich?)
-del loadset (del x.T and file/x.T) find and remove all references to x.T in command files
-del file X (search all .T files and delete or comment,and remove from F)
-find refrences to T or K that no longer exist and warn/delete
-find transcripts that are not used
-rename load (renames .T and file and then replaces in K)
-find and replace on load with another
-twhich+ find pattern not just path
-checkin X
-check in all (with update or not)
-check for ending carriage return
-check for circular references in K files
-check for all K files referenced in config
-check for files in radir/file that are not longer listed in transcript and visversa
-split directory into new transcript:
-    ie take iphoto themes and factor them into a new transcript
-
-x have some sort of command walk generator function
-
- - What positively managed items are inside negative directories
-(sometimes this is intentional, other times its not)
-
- - Missing folders in path ( ie /Librarary/foo/bar is defined in a
-transcript, but nowhere is /Library/foo defined - can result in
-attempts to delete non-empty dirs).
-
- - What items appear in more than one transcript (like using twhich -a)
-
- - What positive items will not be applied because they match an
-exclude pattern
-
-sum of Transcript or K
-
-- determining which positive items have ACLs/EAs/xattrs and thus may have
-difficulty with initial deployment via Radmind. (2123302, 2004112, perhaps
-more that I didn't find)
-
-check out fileinput module for checking lines in multiple files
-have acces to fileinput.filename(), fileinput.filelineno()
-
-create and apply ACL xattrs special transcript type should used bridged access to ACL functions instead of parsing ls
-
-
-
 """
 from __future__ import with_statement
 import re
