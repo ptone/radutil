@@ -35,10 +35,16 @@ from subprocess import Popen, call, STDOUT, PIPE
 from sets import Set
 
 def sort(f,case_insensitive=True,in_place=True,outfile=None):
+    """
+    Sorts a transcript
+    
+    can sort a transcript in place, defaults to being case-insensitive
+    
+    """
     if not (in_place or outfile):
         # raise exception
         pass
-    
+    f = get_full_path(f)
     # bname = os.path.basename(f)
     if in_place:
         infile = f+'_'
@@ -59,6 +65,12 @@ def sort(f,case_insensitive=True,in_place=True,outfile=None):
         os.remove(infile)
 
 def sum_transcript(T,human=False):
+    """
+    Sums the files listed in a transcript
+    
+    returns the number of bytes, defaults to number, unless human==True where it returns with human readable label
+    
+    """
     sum = 0
     t_file = get_full_path(T)
     for line in open(t_file):
@@ -73,6 +85,12 @@ def sum_transcript(T,human=False):
         return sum
 
 def sum_command(K,human=False):
+    """
+    Sums the files listed in all transcripts referenced by a command file
+    
+    returns the number of bytes, defaults to number, unless human==True where it returns with human readable label
+    
+    """
     transcripts = parse_K(K)['transcript']
     sum = 0
     for t in transcripts:
@@ -92,6 +110,15 @@ def check_t(T):
     pass
 
 def check_k(K):
+    """
+    checks for errors in a command file
+    
+    checks that a command file, and all descendent command files and transcripts 
+    are properly terminated with a carriage return.
+    
+    checks that every transcript file referenced exists
+    
+    """
     parsed = parse_K(K)
     errors = []
     for k in parsed['command']:
@@ -113,6 +140,7 @@ def check_k(K):
     return errors
     
 def ending_ok(partial):
+    """Utility function to check file ends with return"""
     full_path = get_full_path(partial)
     f = open(full_path)
     # go to end of file and read last byte
@@ -152,8 +180,13 @@ def get_full_path(partial,get_file=False):
     return full_path
 
 def find_in_T(pattern,T,escaped=True):
-    """Returns a list of tuples of (line number, line)
-    pattern is escaped by default"""
+    """
+    finds a pattern in a transcript file
+    
+    Returns a list of tuples of (line number, line)
+    pattern is escaped by default
+    
+    """
     t_file = get_full_path(T)
     results = []
     if escaped:
@@ -167,7 +200,9 @@ def find_in_T(pattern,T,escaped=True):
     return results
 
 def find_in_K(pattern,K,escaped=True):
-    """returns a nested list datastructure for found results:
+    """find a pattern in any descendent transcript
+    
+    returns a nested list datastructure for found results:
     [command file name [
         transcript1[
             (line number,line),
@@ -189,7 +224,9 @@ def find_in_K(pattern,K,escaped=True):
             (line number,line),
              ]
         ]
-    ]]"""
+    ]]
+    
+    """
     # this might need a total rethink on the return datastructure
     results = []
     for this_k, sub_k, these_t, these_e in walk_K(K):
@@ -209,8 +246,16 @@ def main():
     pass
 
 def parse_K(K,supress_error=False):
-    """returns a dictionary of {command,transcript,exclude} 
-     3 lists: (sub k files, transcripts /unique and ordered by precedence/,exclude patterns)"""
+    """
+    parses a K file to determine all decendent K,T files and any referenced exclude patterns
+    
+    Will preserve precendence order of transcripts
+    
+    exclude patterns appearing are filtered to be unique
+    
+    returns a dictionary of lists {command[],transcript[],exclude[]} 
+    
+    """
      # see notes in parse_K_walked for why there is so much overlap with this and the walk_K function (this came first)
     k_file = get_full_path(K)
     participating_K = [K]
@@ -243,11 +288,15 @@ def parse_K(K,supress_error=False):
     return {'command':list(participating_K),'transcript':list(transcripts),'exclude':list(excludes)}
 
 def parse_K_walked(K,supress_error=False):
-    # this isnt as usefu as the original parse - because the order of the recursion with a generator doesn't allow
-    # keeping the integrity of the transcript order
-    # a transcript that appears after a k-in-k can get stomped because the k gets processed after all transcripts
-    """returns a dictionary of {command,transcript,exclude} 
-     3 lists: (sub k files, transcripts /unique and ordered by precedence/,exclude patterns)"""
+    """
+    This is probably going away  - see comments
+    
+    returns a dictionary of {command,transcript,exclude} 
+    3 lists: (sub k files, transcripts /unique and ordered by precedence/,exclude patterns)
+    """
+     # this isnt as usefu as the original parse - because the order of the recursion with a generator doesn't allow
+     # keeping the integrity of the transcript order
+     # a transcript that appears after a k-in-k can get stomped because the k gets processed after all transcripts
     participating_K = []
     transcripts = []
     excludes = Set()
@@ -262,8 +311,12 @@ def parse_K_walked(K,supress_error=False):
     return {'command':list(participating_K),'transcript':list(transcripts),'exclude':list(excludes)}
 
 def walk_K(K):
-    """ yields (k name, sub k's,transcripts, excludes)
-    similar to os.walk"""
+    """
+    A generator function modeled on os.walk
+    
+    yields a tuple of (k name, sub k's,transcripts, excludes) for each K traversed
+    
+    """
     k_files_to_process = [K]
     seen_k = []
     while k_files_to_process:
