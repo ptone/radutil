@@ -89,9 +89,17 @@ def rename_load(t,new_name,update_k=True):
     os.rename(f_dir,new_dir)
     if update_k:
         # update any references to the old name to point to the new name
-        for k in all_k():
-            rename_t_in_k(k,t,new_name,recurse=False)
+        swap_t(t,new_name)
 
+def swap_t(t_old,t_new):
+    """replace all occurrences of old with new in all command files
+    """
+    mods_made = False
+    for k in all_k():
+        r = rename_t_in_k(k,t_old,t_new,recurse=False)
+        mods_made = mods_made or r
+    return mods_made
+    
 def all_k(exclude=['index.K']):
     """lists all k files"""
     # todo - have a global setting for excludes so I can pull my index.K bit
