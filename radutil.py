@@ -168,11 +168,11 @@ def undelete_load(t):
     
 def remove_load(t):
     """remove all references to a transcript - change only command files"""
-    pass
+    return swap (t,'')
 
 def remove_command(k):
     """remove all references to command file - change only command files"""
-    pass
+    return swap (k,'')
     
 def swap(old,new):
     """replace all occurrences of old with new in all command files
