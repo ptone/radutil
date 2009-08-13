@@ -35,6 +35,10 @@ from subprocess import Popen, call, STDOUT, PIPE
 from sets import Set
 import shutil
 
+# RAD_DIR = '/var/radmind/'
+RAD_DIR = '/Users/preston/Projects/san roque/projectsSRS/Radmind/Sample var_radmind/'
+DEFAULT_K_EXCLUDES = ['index.K']
+
 def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
     """internal factored function"""
     mods_made = False
@@ -133,7 +137,7 @@ def init_trash():
         if not os.path.exists(p):
             os.makedirs(p)
             
-    trash_dir = os.path.join(rad_dir,'trash')
+    trash_dir = os.path.join(RAD_DIR,'trash')
     t = os.path.join(trash_dir,'transcript')
     f = os.path.join(trash_dir,'file')
     k = os.path.join(trash_dir,'command')
@@ -142,7 +146,7 @@ def init_trash():
     make_if_not_exists(k)
 
 def empty_trash():
-    shutil.rmtree(os.path.join(rad_dir,'trash'))
+    shutil.rmtree(os.path.join(RAD_DIR,'trash'))
     init_trash()
     
 def delete_load(t,update_k=True):
@@ -150,8 +154,8 @@ def delete_load(t,update_k=True):
     init_trash()
     t_file = get_full_path(t)
     f_dir = get_full_path(t,loc='file')
-    new_t = os.path.join(rad_dir,'trash','transcript',t)
-    new_dir = os.path.join(rad_dir,'trash','file',t)
+    new_t = os.path.join(RAD_DIR,'trash','transcript',t)
+    new_dir = os.path.join(RAD_DIR,'trash','file',t)
     os.rename(t_file,new_t)
     os.rename(f_dir,new_dir)
     if update_k:
@@ -161,8 +165,8 @@ def delete_load(t,update_k=True):
 def undelete_load(t):
     t_file = get_full_path(t,trash=True)
     f_dir = get_full_path(t,loc='file',trash=True)
-    new_t = os.path.join(rad_dir,'transcript',t)
-    new_dir = os.path.join(rad_dir,'file',t)
+    new_t = os.path.join(RAD_DIR,'transcript',t)
+    new_dir = os.path.join(RAD_DIR,'file',t)
     os.rename(t_file,new_t)
     os.rename(f_dir,new_dir)
     
@@ -182,11 +186,14 @@ def swap(old,new):
         r = _rename_or_remove_x_in_k(k,old,new,recurse=False)
         mods_made = mods_made or r
     return mods_made
-    
-def all_k(exclude=['index.K']):
+
+def lcksum(t):
+    pass
+
+def all_k(exclude=DEFAULT_K_EXCLUDES):
     """lists all k files"""
     # todo - have a global setting for excludes so I can pull my index.K bit
-    k_dir = os.path.join(rad_dir,'command')
+    k_dir = os.path.join(RAD_DIR,'command')
     for root, dirs, files in os.walk(k_dir):
         for f in files:
             if f.lower().endswith('k') and not f in exclude:
@@ -316,9 +323,7 @@ def prettySize(size):
             continue
         else:
             return "%s%s" % (round(size/float(lim/2**10),2),suf)
- 
-# rad_dir = '/var/radmind/'
-rad_dir = '/Users/preston/Projects/san roque/projectsSRS/Radmind/Sample var_radmind/' 
+
 
 def get_full_path(partial,loc=False,trash=False):
     """Utility function to take radmind relative path and resolve to full path"""
@@ -333,9 +338,9 @@ def get_full_path(partial,loc=False,trash=False):
         raise ValueError("%s not a recognized radmind file type")
     if trash:
         sub = os.path.join('trash',sub)
-    full_path = os.path.join(rad_dir,sub,partial)
+    full_path = os.path.join(RAD_DIR,sub,partial)
     if not os.path.exists(full_path):
-        raise ValueError ("%s %s not found in %s" % (sub,partial,rad_dir))
+        raise ValueError ("%s %s not found in %s" % (sub,partial,RAD_DIR))
     return full_path
 
 def find_in_T(pattern,T,escaped=True):

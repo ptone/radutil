@@ -31,6 +31,7 @@ rename (t or k - old/new)
 remove
 swap
 combine
+bundle
 checkin
     list
     all
