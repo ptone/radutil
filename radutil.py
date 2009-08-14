@@ -35,9 +35,54 @@ from subprocess import Popen, call, STDOUT, PIPE
 from sets import Set
 import shutil
 
-# RAD_DIR = '/var/radmind/'
-RAD_DIR = '/Users/preston/Projects/san roque/projectsSRS/Radmind/Sample var_radmind/'
-DEFAULT_K_EXCLUDES = ['index.K']
+
+class Config(dict):
+    """Example of overloading __getatr__ and __setattr__
+    This example creates a dictionary where members can be accessed as attributes
+    """
+    def __init__(self):
+        import ConfigParser
+        config_paths = (
+            '/etc/radutil.cfg',
+            '/usr/local/etc/radutil.cfg',
+            '/Library/Preferences/radutil.cfg',
+        )
+        base_defaults = {
+            'rad_dir':'/var/radmind/',
+            'default_k_excludes': '',
+            'case_sensitive': False,
+            'checksum': 'sha1',
+            'fsdiffpath': '.',
+        }
+        configparser = ConfigParser.SafeConfigParser(base_defaults)
+        configparser.read(config_paths)
+        base_defaults.update(dict(configparser.items('radutil')))
+        base_defaults['default_k_excludes'] = base_defaults['default_k_excludes'].split()
+        dict.__init__(self, base_defaults)
+        self.__initialised = True
+        # after initialisation, setting attributes is the same as setting an item
+
+    def __getattr__(self, item):
+        """Maps values to attributes.
+        Only called if there *isn't* an attribute with this name
+        """
+        try:
+            return self.__getitem__(item)
+        except KeyError:
+            raise AttributeError(item)
+
+    def __setattr__(self, item, value):
+        """Maps attributes to values.
+        Only if we are initialised
+        """
+        if not self.__dict__.has_key('_attrExample__initialised'):  # this test allows attributes to be set in the __init__ method
+            return dict.__setattr__(self, item, value)
+        elif self.__dict__.has_key(item):       # any normal attributes are handled normally
+            dict.__setattr__(self, item, value)
+        else:
+            self.__setitem__(item, value)
+
+config = Config()
 
 def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
     """internal factored function"""
@@ -137,7 +182,7 @@ def init_trash():
         if not os.path.exists(p):
             os.makedirs(p)
             
-    trash_dir = os.path.join(RAD_DIR,'trash')
+    trash_dir = os.path.join(config.rad_dir,'trash')
     t = os.path.join(trash_dir,'transcript')
     f = os.path.join(trash_dir,'file')
     k = os.path.join(trash_dir,'command')
@@ -146,7 +191,7 @@ def init_trash():
     make_if_not_exists(k)
 
 def empty_trash():
-    shutil.rmtree(os.path.join(RAD_DIR,'trash'))
+    shutil.rmtree(os.path.join(config.rad_dir,'trash'))
     init_trash()
     
 def delete_load(t,update_k=True):
@@ -154,8 +199,8 @@ def delete_load(t,update_k=True):
     init_trash()
     t_file = get_full_path(t)
     f_dir = get_full_path(t,loc='file')
-    new_t = os.path.join(RAD_DIR,'trash','transcript',t)
-    new_dir = os.path.join(RAD_DIR,'trash','file',t)
+    new_t = os.path.join(config.rad_dir,'trash','transcript',t)
+    new_dir = os.path.join(config.rad_dir,'trash','file',t)
     os.rename(t_file,new_t)
     os.rename(f_dir,new_dir)
     if update_k:
@@ -165,8 +210,8 @@ def delete_load(t,update_k=True):
 def undelete_load(t):
     t_file = get_full_path(t,trash=True)
     f_dir = get_full_path(t,loc='file',trash=True)
-    new_t = os.path.join(RAD_DIR,'transcript',t)
-    new_dir = os.path.join(RAD_DIR,'file',t)
+    new_t = os.path.join(config.rad_dir,'transcript',t)
+    new_dir = os.path.join(config.rad_dir,'file',t)
     os.rename(t_file,new_t)
     os.rename(f_dir,new_dir)
     
@@ -190,10 +235,10 @@ def swap(old,new):
 def lcksum(t):
     pass
 
-def all_k(exclude=DEFAULT_K_EXCLUDES):
+def all_k(exclude=config.default_k_excludes):
     """lists all k files"""
     # todo - have a global setting for excludes so I can pull my index.K bit
-    k_dir = os.path.join(RAD_DIR,'command')
+    k_dir = os.path.join(config.rad_dir,'command')
     for root, dirs, files in os.walk(k_dir):
         for f in files:
             if f.lower().endswith('k') and not f in exclude:
@@ -338,9 +383,9 @@ def get_full_path(partial,loc=False,trash=False):
         raise ValueError("%s not a recognized radmind file type")
     if trash:
         sub = os.path.join('trash',sub)
-    full_path = os.path.join(RAD_DIR,sub,partial)
+    full_path = os.path.join(config.rad_dir,sub,partial)
     if not os.path.exists(full_path):
-        raise ValueError ("%s %s not found in %s" % (sub,partial,RAD_DIR))
+        raise ValueError ("%s %s not found in %s" % (sub,partial,config.rad_dir))
     return full_path
 
 def find_in_T(pattern,T,escaped=True):
