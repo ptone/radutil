@@ -108,7 +108,7 @@ def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
             f.close()
             # reopen file with write permission (seeking to 0 could leave stray bytes at the end)
             f = open(k_file,'w')
-            f.write(''.join(lines))
+            f.write(''.join(lines)) # they already have newline
             mods_made = True
         if not recurse:
             break
@@ -412,7 +412,7 @@ def find_in_K(pattern,K,escaped=True):
     """find a pattern in any descendent transcript
     
     returns a nested list datastructure for found results:
-    [command file name [
+    [command file name, [
         transcript1[
             (line number,line),
             (line number,line),
@@ -423,7 +423,7 @@ def find_in_K(pattern,K,escaped=True):
              ]
         ]
     ],
-    command file name [
+    [command file name, [
         transcript1[
             (line number,line),
             (line number,line),
@@ -476,19 +476,24 @@ def parse_K(K,supress_error=False):
                 if line == '\n': continue
                 if line[0] == '#': continue
                 fields = line.split()
+                remove = False
+                if fields[0] == '-':
+                    remove = True
+                    del (fields[0])
                 path = fields[1]
                 if fields[0] in ('p','n'):
                     if path in transcripts:
                         # delete it first then append
                         del(transcripts[transcripts.index(path)])
-                    # todo what is the best way to denote negative in this structure without overcomplicating?
-                    # perhaps just a '-' prepended?
-                    transcripts.append(path)
+                    # @@ todo what is the best way to denote negative in this structure without overcomplicating?
+                    # perhaps just a '-' prepended - but that has other meaning in k files?
+                    if not remove:
+                        transcripts.append(path)
 
                 elif fields[0] == 'k':
                     if path in participating_K and not supress_error:
                         # todo custom radmind error exception
-                        raise RuntimeError("%s referenced multiple times in %s" % (path, K))
+                        raise RuntimeError("%s referenced multiple times in %s, possible loop condition" % (path, K))
                     participating_K.append(path)
                     k_parser(get_full_path(path))
                 elif fields[0] == 'x':
@@ -540,6 +545,10 @@ def walk_K(K):
                 if line == '\n': continue
                 if line[0] == '#': continue
                 fields = line.split()
+                remove = False
+                if fields[0] == '-':
+                    remove = True
+                    del (fields[0])
                 path = fields[1]
                 if fields[0] in ('p','n'):
                     if path in transcripts:
@@ -547,8 +556,8 @@ def walk_K(K):
                         del(transcripts[transcripts.index(path)])
                     # todo what is the best way to denote negative in this structure without overcomplicating?
                     # perhaps just a '-' prepended?
-                    transcripts.append(path)
-                
+                    if not remove:
+                        transcripts.append(path)
                 elif fields[0] == 'k':
                     if path in seen_k:
                         raise RuntimeError("%s referenced multiple times in %s" % (path, K))
