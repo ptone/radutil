@@ -84,6 +84,18 @@ class Config(dict):
 
 config = Config()
 
+def is_load(f):
+    return f.lower()[-2:] == '.t'
+
+def makedirs(p):
+    d = path.split(p)[0]
+    if not os.path.exists(d):
+        os.makedirs(d)
+
+def fs_move (old,new):
+    makedirs (new)
+    os.rename (old,new)
+    
 def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
     """internal factored function"""
     mods_made = False
@@ -161,18 +173,19 @@ def remove_k_in_k(k,k_old,recurse=True):
     _rename_or_remove_x_in_k(k,k_old,recurse=recurse,remove=True)
 
 
-def rename_load(t,new_name,update_k=True):
+def rename(t,new_name,update_k=True):
+    # @@ need to make this generic for T and K files
     """moves or renames transcript file and associated file storage
     
     default is to also do a find and replace of all occurences of old name in command files
     """
+    if is_load(t):
+        f_dir = get_full_path(t,loc='file')
+        new_dir = os.path.join(config.rad_dir,'file',new_name)
+        fs_move(f_dir,new_dir)
     t_file = get_full_path(t)
-    f_dir = get_full_path(t,loc='file')
-    # @@ need to work out path to new name if contains dirs and create dirs before doing rename
-    new_t = os.path.join(os.path.dirname(t_file),new_name)
-    new_dir = os.path.join(os.path.dirname(f_dir),new_name)
-    os.rename(t_file,new_t)
-    os.rename(f_dir,new_dir)
+    new_f = os.path.join(t_file.replace(t,''),new_name)
+    fs_move (t_file,new_f)
     if update_k:
         # update any references to the old name to point to the new name
         swap(t,new_name)
@@ -194,29 +207,34 @@ def init_trash():
 def empty_trash():
     shutil.rmtree(os.path.join(config.rad_dir,'trash'))
     init_trash()
-    
-def delete_load(t,update_k=True):
-    """deletes a loadset and removes references to it from command files"""
-    # @@ need to preserve relative path in trash
+
+def delete(t,update_k=True):
+    """deletes a loadset/command and removes references to it from command files"""
     init_trash()
+
+
+    if is_load(t)
+        f_dir = get_full_path(t,loc='file')
+        new_dir = os.path.join(config.rad_dir,'trash',f_dir.replace(config.rad_dir,''))
+        fs_move(f_dir,new_dir)
+    # do this in this order just in case files were not found... unlikely
     t_file = get_full_path(t)
-    f_dir = get_full_path(t,loc='file')
-    new_t = os.path.join(config.rad_dir,'trash','transcript',t)
-    new_dir = os.path.join(config.rad_dir,'trash','file',t)
-    os.rename(t_file,new_t)
-    os.rename(f_dir,new_dir)
+    new_f = os.path.join(config.rad_dir,'trash',t_file.replace(config.rad_dir,''))
+    fs_move(t_file,new_f)
+    # @@ clean up empty folders here?
     if update_k:
         # remove any references to the old name
-        swap(t,'') 
+        swap(f,'') 
         
 def undelete_load(t):
-    # @@ need to restore relative path
+    if is_load(t)
+        f_dir = get_full_path(t,loc='file',trash=True)
+        new_dir = os.path.join(config.rad_dir,f_dir.replace('trash',''))
+        fs_move(f_dir,new_dir)
     t_file = get_full_path(t,trash=True)
-    f_dir = get_full_path(t,loc='file',trash=True)
-    new_t = os.path.join(config.rad_dir,'transcript',t)
-    new_dir = os.path.join(config.rad_dir,'file',t)
-    os.rename(t_file,new_t)
-    os.rename(f_dir,new_dir)
+    new_f = os.path.join(config.rad_dir,t_file.replace('trash',''))
+    fs_move(t_file,new_f)
+
     
 def remove_load(t):
     """

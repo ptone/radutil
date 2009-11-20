@@ -26,13 +26,14 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Verbs:
-delete (t or k)
-rename (t or k - old/new)
-remove
-swap
-combine
-bundle
+delete <t/k>
+rename <t/k> new_name
+remove <t/k> [k]
+swap old new
+combine item1 item2 [itemN...] new_name | item_pattern* new_name
+bundle item1 item2 [itemN...] bundle_name
 checkin
+    [update]
     list
     all
     <transcript>
@@ -42,11 +43,27 @@ get
     command
 """
 
+vocab = {
+    'delete':(delete,['direct']),
+    'rename':(rename,['direct','new_name']),
+    'remove':(remove,['direct'],['command_file']),
+    'swap':(swap,['old','new']),
+    'combine':()
+}
+
 import sys
 import os
 from optparse import OptionParser,OptionGroup
 import radutil
 
+def delete (t_k):
+    radutil.delete(t_k)
+    print '%s moved to trash' % t_k
+    
+def rename (old,new):
+    if old.lower()[-2:] == '.t':
+        radutil.rename_load (old,new)
+        elif radutil.rename_load
 def main(argv=None):
     parser = OptionParser()
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
@@ -59,7 +76,7 @@ def main(argv=None):
 #    if options.some_option != desired_value:
 #        parser.error("specified option bad")
     
-    # verb will be first arg
+    # verb needs to be first arg
     verb = args[1]
     if verb.lower() == 'delete'
         del_item = args[2]
