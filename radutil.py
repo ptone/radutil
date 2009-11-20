@@ -175,7 +175,7 @@ def remove_k_in_k(k,k_old,recurse=True):
 
 def rename(t,new_name,update_k=True):
     # @@ need to make this generic for T and K files
-    """moves or renames transcript file and associated file storage
+    """moves or renames transcript/command file and any associated file storage
     
     default is to also do a find and replace of all occurences of old name in command files
     """
@@ -211,8 +211,6 @@ def empty_trash():
 def delete(t,update_k=True):
     """deletes a loadset/command and removes references to it from command files"""
     init_trash()
-
-
     if is_load(t)
         f_dir = get_full_path(t,loc='file')
         new_dir = os.path.join(config.rad_dir,'trash',f_dir.replace(config.rad_dir,''))
@@ -258,8 +256,6 @@ def swap(old,new):
         mods_made = mods_made or r
     return mods_made
 
-def lcksum(t):
-    pass
 
 def all_k(exclude=config.default_k_excludes):
     """lists all k files"""
@@ -341,10 +337,10 @@ def sum_command(K,human=False):
     else:
         return sum
 
-def check_t(T):
+def check_t(t):
     # should just be a call to lcksum validate...
     # could use a function to just verify exists
-    pass
+    return not checksums(t)
 
 def check_k(K):
     """
@@ -366,6 +362,7 @@ def check_k(K):
         else:
             if not ending_ok(k_file):
                 errors.append("%s is not terminated with a carriage return" % k)
+            
     for t in parsed['transcript']:
         try:
             t_file = get_full_path(t)
@@ -374,6 +371,8 @@ def check_k(K):
         else:
             if not ending_ok(t_file):
                 errors.append("%s is not terminated with a carriage return" % t)
+            if not check_t(t):
+                errors.append ("%s failed to verify" % t)
     return errors
     
 def ending_ok(partial):
@@ -439,6 +438,24 @@ def list_pending():
     lists loadsets pending checkin in tmp dir
     """
     return os.listdir(os.path.join(config.rad_dir,'tmp','transcript'))
+
+def checksums (path,update=False,output=sys.stdout,error=sys.stderr):
+    cmd = ['lcksum']
+    opts = ['-%', '-iq','-c'+config.checksum]
+    if not config.case_sensitive:
+        opts.append('-I')
+    if not update:
+        opts.append('-n')
+    cmd.extend(opts)
+    cmd.append(path)
+    process = Popen(' '.join(cmd),shell=True,stdout=output,stderr=error)
+    o,e = process.communicate()
+    if process.returncode:
+        if (update and process.returncode > 1):
+            raise RuntimeError ('transcript failed to update')
+        elif (not update and process.returncode):
+            raise RuntimeError ('transcript failed to verify')
+    return process.returncode
     
 def checkin(load,update=False,output=sys.stdout,error=sys.stderr):
     """
@@ -452,24 +469,10 @@ def checkin(load,update=False,output=sys.stdout,error=sys.stderr):
     f_dest = os.path.join(config.rad_dir,'file',os.path.basename(load_files))
     if os.path.exists (t_dest) or os.path.exists(f_dest):
         raise RuntimeError ('loadset %s already exists' % load)
-    cmd = ['lcksum']
-    opts = ['-%', '-iq','-c'+config.checksum]
-    if not config.case_sensitive:
-        opts.append('-I')
-    if not update:
-        opts.append('-n')
-    cmd.extend(opts)
-    cmd.append(load_transcript)
-    process = Popen(' '.join(cmd),shell=True,stdout=output,stderr=error)
-    o,e = process.communicate()
-    if process.returncode:
-        if (update and process.returncode > 1):
-            raise RuntimeError ('transcript failed to update')
-        elif (not update and process.returncode):
-            raise RuntimeError ('transcript failed to verify')
+    result = checksums (load_transcript,update=update,output=output,error=error)
     shutil.move(load_transcript,t_dest)
     shutil.move(load_files,f_dest)
-    return process.returncode
+    return result
 
 def checkin_all(update=False,output=sys.stdout,error=sys.stderr,continue_on_error=True):
     for load in list_pending():
