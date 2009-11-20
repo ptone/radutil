@@ -162,12 +162,13 @@ def remove_k_in_k(k,k_old,recurse=True):
 
 
 def rename_load(t,new_name,update_k=True):
-    """renames transcript file and associated file storage
+    """moves or renames transcript file and associated file storage
     
     default is to also do a find and replace of all occurences of old name in command files
     """
     t_file = get_full_path(t)
     f_dir = get_full_path(t,loc='file')
+    # @@ need to work out path to new name if contains dirs and create dirs before doing rename
     new_t = os.path.join(os.path.dirname(t_file),new_name)
     new_dir = os.path.join(os.path.dirname(f_dir),new_name)
     os.rename(t_file,new_t)
@@ -195,7 +196,8 @@ def empty_trash():
     init_trash()
     
 def delete_load(t,update_k=True):
-    """docstring for delete_load"""
+    """deletes a loadset and removes references to it from command files"""
+    # @@ need to preserve relative path in trash
     init_trash()
     t_file = get_full_path(t)
     f_dir = get_full_path(t,loc='file')
@@ -208,6 +210,7 @@ def delete_load(t,update_k=True):
         swap(t,'') 
         
 def undelete_load(t):
+    # @@ need to restore relative path
     t_file = get_full_path(t,trash=True)
     f_dir = get_full_path(t,loc='file',trash=True)
     new_t = os.path.join(config.rad_dir,'transcript',t)
@@ -216,15 +219,20 @@ def undelete_load(t):
     os.rename(f_dir,new_dir)
     
 def remove_load(t):
-    """remove all references to a transcript - change only command files"""
+    """
+    remove all references to a transcript - change only command files
+    """
     return swap (t,'')
 
 def remove_command(k):
-    """remove all references to command file - change only command files"""
+    """
+    remove all references to command file - change only command files
+    """
     return swap (k,'')
     
 def swap(old,new):
-    """replace all occurrences of old with new in all command files
+    """
+    replace all occurrences of old with new in all command files
     """
     mods_made = False
     for k in all_k():
@@ -408,6 +416,53 @@ def find_in_T(pattern,T,escaped=True):
                 results.append((i,line))
     return results
 
+def list_pending():
+    """
+    lists loadsets pending checkin in tmp dir
+    """
+    return os.listdir(os.path.join(config.rad_dir,'tmp','transcript'))
+    
+def checkin(load,update=False,output=sys.stdout,error=sys.stderr):
+    """
+    checkin an uploaded (lcreate) loadset
+    """
+    load_transcript = os.path.join(config.rad_dir,'tmp','transcript',load)
+    if not os.path.exists (load_transcript):
+        raise RuntimeError ('%s not found' % load)
+    t_dest = os.path.join(config.rad_dir,'transcript',os.path.basename(load_transcript))
+    load_files = os.path.join(config.rad_dir,'tmp','file',load)
+    f_dest = os.path.join(config.rad_dir,'file',os.path.basename(load_files))
+    if os.path.exists (t_dest) or os.path.exists(f_dest):
+        raise RuntimeError ('loadset %s already exists' % load)
+    cmd = ['lcksum']
+    opts = ['-%', '-iq','-c'+config.checksum]
+    if not config.case_sensitive:
+        opts.append('-I')
+    if not update:
+        opts.append('-n')
+    cmd.extend(opts)
+    cmd.append(load_transcript)
+    process = Popen(' '.join(cmd),shell=True,stdout=output,stderr=error)
+    o,e = process.communicate()
+    if process.returncode:
+        if (update and process.returncode > 1):
+            raise RuntimeError ('transcript failed to update')
+        elif (not update and process.returncode):
+            raise RuntimeError ('transcript failed to verify')
+    shutil.move(load_transcript,t_dest)
+    shutil.move(load_files,f_dest)
+    return process.returncode
+
+def checkin_all(update=False,output=sys.stdout,error=sys.stderr,continue_on_error=True):
+    for load in list_pending():
+        try:
+            checkin (load,update=update,output=output,error=error)         
+        except:
+            if continue_on_error:
+                continue
+            else:
+                raise
+                
 def find_in_K(pattern,K,escaped=True):
     """find a pattern in any descendent transcript
     
