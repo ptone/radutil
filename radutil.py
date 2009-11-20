@@ -88,7 +88,7 @@ def is_load(f):
     return f.lower()[-2:] == '.t'
 
 def makedirs(p):
-    d = path.split(p)[0]
+    d = os.path.split(p)[0]
     if not os.path.exists(d):
         os.makedirs(d)
 
@@ -99,7 +99,7 @@ def fs_move (old,new):
 def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
     """internal factored function"""
     mods_made = False
-    if remove and not new:
+    if not (remove or new):
         raise ValueError ("No replacement name provided")
     if new == '':
         # implicit remove
@@ -122,8 +122,9 @@ def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
             f = open(k_file,'w')
             f.write(''.join(lines)) # they already have newline
             mods_made = True
+            
         if not recurse:
-            break
+            return mods_made
     return mods_made
     
 def rename_t_in_k(k,t_old,t_new,recurse=True):
@@ -137,7 +138,7 @@ def rename_t_in_k(k,t_old,t_new,recurse=True):
     
     returns true if changes were made
     """
-    _rename_or_remove_x_in_k(k,t_old,t_new=t_new,recurse=recurse)
+    return _rename_or_remove_x_in_k(k,t_old,new=t_new,recurse=recurse)
 
 def remove_t_in_k(k,t,recurse=True):
     """removes occurrences of t in k or children - changes only K files
@@ -147,7 +148,7 @@ def remove_t_in_k(k,t,recurse=True):
     
     returns true if changes were made
     """
-    _rename_or_remove_x_in_k(k,t,recurse=recurse,remove=True)
+    return _rename_or_remove_x_in_k(k,t,recurse=recurse,remove=True)
 
 def rename_k_in_k(k,k_old,k_new,recurse=True):
     """renames occurrences of k in k or children - changes only K files
@@ -160,7 +161,7 @@ def rename_k_in_k(k,k_old,k_new,recurse=True):
 
     returns true if changes were made
     """
-    _rename_or_remove_x_in_k(k,k_old,k_new=t_new,recurse=recurse)
+    return _rename_or_remove_x_in_k(k,k_old,k_new=t_new,recurse=recurse)
 
 def remove_k_in_k(k,k_old,recurse=True):
     """removes occurrences of k in k or children - changes only K files
@@ -170,7 +171,7 @@ def remove_k_in_k(k,k_old,recurse=True):
 
     returns true if changes were made
     """
-    _rename_or_remove_x_in_k(k,k_old,recurse=recurse,remove=True)
+    return _rename_or_remove_x_in_k(k,k_old,recurse=recurse,remove=True)
 
 
 def rename(t,new_name,update_k=True):
@@ -211,7 +212,7 @@ def empty_trash():
 def delete(t,update_k=True):
     """deletes a loadset/command and removes references to it from command files"""
     init_trash()
-    if is_load(t)
+    if is_load(t):
         f_dir = get_full_path(t,loc='file')
         new_dir = os.path.join(config.rad_dir,'trash',f_dir.replace(config.rad_dir,''))
         fs_move(f_dir,new_dir)
@@ -222,10 +223,10 @@ def delete(t,update_k=True):
     # @@ clean up empty folders here?
     if update_k:
         # remove any references to the old name
-        swap(f,'') 
+        swap(t,'') 
         
-def undelete_load(t):
-    if is_load(t)
+def undelete(t):
+    if is_load(t):
         f_dir = get_full_path(t,loc='file',trash=True)
         new_dir = os.path.join(config.rad_dir,f_dir.replace('trash',''))
         fs_move(f_dir,new_dir)
@@ -395,9 +396,11 @@ def prettySize(size):
             return "%s%s" % (round(size/float(lim/2**10),2),suf)
 
 
-def get_full_path(partial,loc=False,trash=False):
+def get_full_path(partial,loc=False,trash=False,must_exist=True):
     """Utility function to take radmind relative path and resolve to full path"""
-    # accept a full path
+    # accept a full path - @@ this aspect needs to go away
+    # accepting a full path here will break attempts to get file portion of transcript
+    # as it shortcuts any value in loc
     if os.path.exists(partial):
         return partial
     if partial.upper().endswith('T'):
@@ -409,7 +412,7 @@ def get_full_path(partial,loc=False,trash=False):
     if trash:
         sub = os.path.join('trash',sub)
     full_path = os.path.join(config.rad_dir,sub,partial)
-    if not os.path.exists(full_path):
+    if not os.path.exists(full_path) and must_exist:
         raise ValueError ("%s %s not found in %s" % (sub,partial,config.rad_dir))
     return full_path
 
@@ -483,6 +486,38 @@ def checkin_all(update=False,output=sys.stdout,error=sys.stderr,continue_on_erro
                 continue
             else:
                 raise
+
+def combine (tlist,dest,delete_combined=True):
+    full_tlist = [get_full_path(t) for t in tlist]
+    full_dest = get_full_path(dest,must_exist=False)
+    if os.path.exists(full_dest):
+        raise RuntimeError ("Target transcript already exists")
+    full_dest_file = get_full_path(dest,loc='file',must_exist=False)
+    cmd = ['lmerge']
+    if not config.case_sensitive:
+        cmd.append('-I')
+    cmd.extend(full_tlist)
+    cmd.append(full_dest)
+    makedirs(full_dest)
+    makedirs(full_dest_file)
+    result = call(cmd)
+    if not result:
+        # relative versions
+        t_dir = os.path.join(config.rad_dir,'transcript')
+        rel_dest = full_dest.replace(t_dir,'').lstrip('/')
+        rel_tlist = [t.replace(t_dir,'').lstrip('/') for t in full_tlist]
+        modified_k = []
+        for k in all_k():
+            for t in rel_tlist:
+                if k not in modified_k:
+                    if rename_t_in_k(k,t,rel_dest,recurse=False):
+                        modified_k.append(k)
+                else:
+                    remove_t_in_k (k,t,recurse=False)
+        if delete_combined:
+            for t in tlist:
+                delete(t,update_k=False)
+    return result
                 
 def find_in_K(pattern,K,escaped=True):
     """find a pattern in any descendent transcript
