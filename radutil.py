@@ -488,6 +488,10 @@ def checkin_all(update=False,output=sys.stdout,error=sys.stderr,continue_on_erro
                 raise
 
 def combine (tlist,dest,delete_combined=True):
+    """
+    combine multiple loads into one, and replace occurrences of those transcripts in command files
+    
+    """
     full_tlist = [get_full_path(t) for t in tlist]
     full_dest = get_full_path(dest,must_exist=False)
     if os.path.exists(full_dest):
