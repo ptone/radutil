@@ -41,15 +41,9 @@ get
     size
     transcripts
     command
+sort <t>
 """
 
-vocab = {
-    'delete':(delete,['direct']),
-    'rename':(rename,['direct','new_name']),
-    'remove':(remove,['direct'],['command_file']),
-    'swap':(swap,['old','new']),
-    'combine':()
-}
 
 import sys
 import os
@@ -59,11 +53,35 @@ import radutil
 def delete (t_k):
     radutil.delete(t_k)
     print '%s moved to trash' % t_k
+
+def undelete (t_k):
+    radutil.undelete(t_k)
+    print '%s restored from trash' % t_k
     
 def rename (old,new):
-    if old.lower()[-2:] == '.t':
-        radutil.rename_load (old,new)
-        elif radutil.rename_load
+    radutil.rename(old,new)
+    print '%s renamed' % old
+    
+def remove():
+    pass
+    
+def swap():
+    pass
+    
+def combine(*args):
+    tlist = args[:-1]
+    radutil.combine(tlist,args[-1])
+    
+vocab = {
+    'delete':(delete,['direct']),
+    'undelete':(undelete,['direct']),
+    'rename':(rename,['direct','new_name']),
+    'remove':(remove,['direct'],['command_file']),
+    'swap':(swap,['old','new']),
+    'combine':(combine,['args'])
+    
+}
+
 def main(argv=None):
     parser = OptionParser()
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
@@ -77,14 +95,13 @@ def main(argv=None):
 #        parser.error("specified option bad")
     
     # verb needs to be first arg
-    verb = args[1]
-    if verb.lower() == 'delete'
-        del_item = args[2]
-        if del_item.lower().endswith('k'):
-            radutil.remove_command(del_item)
-        elif del_item.lower().endswith('t'):
-            radutil.delete_load(del_item)
-    
+    bits = args
+    verb = args[0]
+    del(args[0])
+    if verb in vocab:
+        vocab[verb][0](*tuple(args))
+    else:
+        parser.error('%s verb not understood' % verb)
         
 if __name__ == "__main__":
     sys.exit(main())

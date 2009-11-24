@@ -99,11 +99,11 @@ def fs_move (old,new):
 def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
     """internal factored function"""
     mods_made = False
-    if not (remove or new):
-        raise ValueError ("No replacement name provided")
     if new == '':
         # implicit remove
         remove = True
+    if not (remove or new):
+        raise ValueError ("No replacement name provided")
     for this_k, sub_k, these_t, these_e in walk_K(k):
         if old.lower().endswith('k'):
             subs = sub_k
@@ -185,7 +185,7 @@ def rename(t,new_name,update_k=True):
         new_dir = os.path.join(config.rad_dir,'file',new_name)
         fs_move(f_dir,new_dir)
     t_file = get_full_path(t)
-    new_f = os.path.join(t_file.replace(t,''),new_name)
+    new_f = os.path.join(config.rad_dir,'transcript',new_name)
     fs_move (t_file,new_f)
     if update_k:
         # update any references to the old name to point to the new name
@@ -209,16 +209,26 @@ def empty_trash():
     shutil.rmtree(os.path.join(config.rad_dir,'trash'))
     init_trash()
 
-def delete(t,update_k=True):
+
+def delete(t,update_k=True,multiple_ok=True):
     """deletes a loadset/command and removes references to it from command files"""
     init_trash()
+    unique_suffix = ''
     if is_load(t):
         f_dir = get_full_path(t,loc='file')
         new_dir = os.path.join(config.rad_dir,'trash',f_dir.replace(config.rad_dir,''))
+        if os.path.exists(new_dir):
+            if not multiple_ok:
+                raise RuntimeError ("item with that name already in trash")
+            else:
+                while os.path.exists(new_dir):
+                    # @@ this could be substantially improved
+                    new_dir += '_'
+                    unique_suffix += '_'
         fs_move(f_dir,new_dir)
     # do this in this order just in case files were not found... unlikely
     t_file = get_full_path(t)
-    new_f = os.path.join(config.rad_dir,'trash',t_file.replace(config.rad_dir,''))
+    new_f = os.path.join(config.rad_dir,'trash',t_file.replace(config.rad_dir,'')) + unique_suffix
     fs_move(t_file,new_f)
     # @@ clean up empty folders here?
     if update_k:
@@ -401,11 +411,19 @@ def get_full_path(partial,loc=False,trash=False,must_exist=True):
     # accept a full path - @@ this aspect needs to go away
     # accepting a full path here will break attempts to get file portion of transcript
     # as it shortcuts any value in loc
-    if os.path.exists(partial):
-        return partial
-    if partial.upper().endswith('T'):
+    
+    # if os.path.exists(partial):
+    #     return partial
+    
+    # this may not be the best way to do it, 
+    # but want to provide for path completion when using CLI tool:
+    for pre in ('tmp/','transcript/'):
+        if partial.startswith(pre):
+            partial = partial[len(pre):]
+    
+    if partial.upper().endswith('.T'):
         sub = loc or 'transcript'
-    elif partial.upper().endswith('K'):
+    elif partial.upper().endswith('.K'):
         sub = 'command'
     else:
         raise ValueError("%s not a recognized radmind file type")
