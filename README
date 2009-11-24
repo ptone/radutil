@@ -1,1 +1,33 @@
-this is a project to create a python library for managing a radmind server
+radutil and radcmd are a pair of administrative tools to manage a radmind server
+
+This is currently an experimental version
+
+radutil is a Python library providing functions for management tasks, and radcmd is a command line tool for this library.
+
+Installation:
+The tools can be left in the folder you downloaded them, or they can be installed as follows:
+
+the radutil.py file needs to be in your Python path.  On OS X 10.5 this will be:
+/Library/Python/2.5/site-packages
+
+The radcmd file needs to be executable and on your path (ie /usr/local/bin)
+
+If your radmind files in /var/radmind are owned by root (the default) you must run radcmd as root
+
+Configuration:
+
+The following paths are checked for a configuration file:
+
+    '/etc/radutil.cfg',
+    '/usr/local/etc/radutil.cfg',
+    '/Library/Preferences/radutil.cfg',
+
+The following defaults are provided if no config is found:
+
+    'rad_dir':'/var/radmind/',
+    'default_k_excludes': '',
+    'case_sensitive': False,
+    'checksum': 'sha1',
+    'fsdiffpath': '.',
+    
+The library is documented in the docstrings, to get the usage for the command line tool, 

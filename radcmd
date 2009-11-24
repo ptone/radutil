@@ -62,23 +62,59 @@ def rename (old,new):
     radutil.rename(old,new)
     print '%s renamed' % old
     
-def remove():
-    pass
-    
+def remove(*args):
+    if len(args) == 2:
+        radutil.remove_t_in_k(*args)
+        print '%s removed from %s' % args
+    elif len(args) == 1:
+        radutil.swap(args[0])
+        print 'all occurences of %s removed from command files' % args[0]
+    else:
+        raise RuntimeError ("Invalid number of arguments for remove, must be 1 or 2")
+        
 def swap():
-    pass
-    
+    if len(args) == 2:
+        radutil.swap(*args)
+        print '%s swapped for %s' % args
+    else:
+        raise RuntimeError ("Invalid number of arguments for swap, must be 2")
+
 def combine(*args):
     tlist = args[:-1]
     radutil.combine(tlist,args[-1])
-    
+
+def checkin(*args):
+    transcripts = []
+    update = False
+    do_all = False
+    for a in args:
+        if a.lower() == 'list':
+            l = radutil.list_pending()
+            ct = len(l)
+            print '%s loadsets pending' % ct
+            if ct:
+                print '\n'.join(l)
+            sys.exit(0)
+        elif a.lower() == 'update': 
+            update = True
+        elif a.lower() == 'all':
+            do_all = True
+        else:
+            transcripts.append (a)
+    if do_all:
+        radutil.checkin_all(update=update)
+    else:
+        for t in transcripts:
+            radutil.checkin(t, update=update)
+            
 vocab = {
     'delete':(delete,['direct']),
     'undelete':(undelete,['direct']),
     'rename':(rename,['direct','new_name']),
     'remove':(remove,['direct'],['command_file']),
     'swap':(swap,['old','new']),
-    'combine':(combine,['args'])
+    'combine':(combine,['args']),
+    'checkin':(checkin,[('all','direct')],['update'])
     
 }
 

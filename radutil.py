@@ -34,7 +34,7 @@ import os
 from subprocess import Popen, call, STDOUT, PIPE
 from sets import Set
 import shutil
-
+import uuid
 
 class Config(dict):
     """Example of overloading __getatr__ and __setattr__
@@ -92,7 +92,7 @@ def makedirs(p):
     if not os.path.exists(d):
         os.makedirs(d)
 
-def fs_move (old,new):
+def fs_move(old,new):
     makedirs (new)
     os.rename (old,new)
     
@@ -161,7 +161,7 @@ def rename_k_in_k(k,k_old,k_new,recurse=True):
 
     returns true if changes were made
     """
-    return _rename_or_remove_x_in_k(k,k_old,k_new=t_new,recurse=recurse)
+    return _rename_or_remove_x_in_k(k,k_old,k_new=k_new,recurse=recurse)
 
 def remove_k_in_k(k,k_old,recurse=True):
     """removes occurrences of k in k or children - changes only K files
@@ -315,18 +315,18 @@ def sum_transcript(T,human=False):
     returns the number of bytes, defaults to number, unless human==True where it returns with human readable label
     
     """
-    sum = 0
+    sum_value = 0
     t_file = get_full_path(T)
     for line in open(t_file):
         if line[0] in ('#','d','l','-'): continue
         data = line.split()
         # print line
         if len(data)>6:
-            sum = sum + int(data[6])
+            sum_value = sum_value + int(data[6])
     if human:
-        return prettySize(sum)
+        return prettySize(sum_value)
     else:
-        return sum
+        return sum_value
 
 def sum_command(K,human=False):
     """
@@ -336,17 +336,17 @@ def sum_command(K,human=False):
     
     """
     transcripts = parse_K(K)['transcript']
-    sum = 0
+    sum_value = 0
     for t in transcripts:
         try:
-            sum = sum + sum_transcript(t)
+            sum_value = sum_value + sum_transcript(t)
         except:
             print t
             raise
     if human:
-        return prettySize(sum)
+        return prettySize(sum_value)
     else:
-        return sum
+        return sum_value
 
 def check_t(t):
     # should just be a call to lcksum validate...
@@ -434,6 +434,13 @@ def get_full_path(partial,loc=False,trash=False,must_exist=True):
         raise ValueError ("%s %s not found in %s" % (sub,partial,config.rad_dir))
     return full_path
 
+def get_relative_path(partial):
+    """simply strips relative path from /var/radmind bash completion"""
+    for pre in ('tmp/','transcript/'):
+        if partial.startswith(pre):
+            partial = partial[len(pre):]
+    return partial
+    
 def find_in_T(pattern,T,escaped=True):
     """
     finds a pattern in a transcript file
@@ -454,13 +461,29 @@ def find_in_T(pattern,T,escaped=True):
                 results.append((i,line))
     return results
 
+def find_occurences(item):
+    """finds occurrences of t or k in all k files"""
+    found_in = []
+    item = get_relative_path(item)
+    if item.upper().endswith('.T'):
+        searching = 'transcript'
+    elif item.upper().endswith('.T'):
+        searching = 'command'
+    else:
+        raise ValueError ("%s not a valid radmind file" % item)
+    for k in all_k():
+        parsed_k = parse_K(k)
+        if item in parsed_k[searching]:
+            found_in.append(k)
+    return found_in
+    
 def list_pending():
     """
     lists loadsets pending checkin in tmp dir
     """
     return os.listdir(os.path.join(config.rad_dir,'tmp','transcript'))
 
-def checksums (path,update=False,output=sys.stdout,error=sys.stderr):
+def checksums(path,update=False,output=sys.stdout,error=sys.stderr):
     cmd = ['lcksum']
     opts = ['-%', '-iq','-c'+config.checksum]
     if not config.case_sensitive:
@@ -505,7 +528,48 @@ def checkin_all(update=False,output=sys.stdout,error=sys.stderr,continue_on_erro
             else:
                 raise
 
-def combine (tlist,dest,delete_combined=True):
+
+def merge(tlist,dest,delete_combined=True,update_K=True):
+    """
+    similar to combine, but dest exists
+    """
+    
+    full_dest = get_full_path(dest,must_exist=False)
+    if not os.path.exists(full_dest):
+        raise RuntimeError ("merge destination does not exist, use combine function instead")
+    tmp = 'tmp-%s' % str(uuid.uuid4())
+    tlist.append(dest)
+    result = combine (tlist,tmp,delete_combined=False,update_K=False)
+    if not result:
+        delete (dest,update_K=False)
+        rename (tmp,dest)
+        if update_K:
+            tlist.pop()
+            # going from passed, to full, to relative is to handle bash completion of transcript/foo.T
+            # instead of just foo.T as it would appear in k file
+            full_tlist = [get_full_path(t) for t in tlist]
+            t_dir = os.path.join(config.rad_dir,'transcript')
+            rel_dest = full_dest.replace(t_dir,'').lstrip('/')
+            rel_tlist = [t.replace(t_dir,'').lstrip('/') for t in full_tlist]
+            modified_k = []
+            for k in all_k():
+                k_parsed = parse_K(k)
+                if dest in k_parsed['transcripts']:
+                    for t in rel_tlist:
+                            remove_t_in_k (k,t,recurse=False)
+                else:
+                    for t in rel_tlist:
+                        if k not in modified_k:
+                            if rename_t_in_k(k,t,rel_dest,recurse=False):
+                                modified_k.append(k)
+                        else:
+                            remove_t_in_k (k,t,recurse=False)
+        if delete_combined:
+            for t in tlist:
+                delete(t,update_k=False)
+    return result
+    
+def combine(tlist,dest,delete_combined=True,update_K=True):
     """
     combine multiple loads into one, and replace occurrences of those transcripts in command files
     
@@ -513,7 +577,8 @@ def combine (tlist,dest,delete_combined=True):
     full_tlist = [get_full_path(t) for t in tlist]
     full_dest = get_full_path(dest,must_exist=False)
     if os.path.exists(full_dest):
-        raise RuntimeError ("Target transcript already exists")
+        return merge(tlist,dest,delete_combined=delete_combined,update_K=update_K)
+        # raise RuntimeError ("Target transcript already exists")
     full_dest_file = get_full_path(dest,loc='file',must_exist=False)
     cmd = ['lmerge']
     if not config.case_sensitive:
@@ -524,18 +589,19 @@ def combine (tlist,dest,delete_combined=True):
     makedirs(full_dest_file)
     result = call(cmd)
     if not result:
-        # relative versions
-        t_dir = os.path.join(config.rad_dir,'transcript')
-        rel_dest = full_dest.replace(t_dir,'').lstrip('/')
-        rel_tlist = [t.replace(t_dir,'').lstrip('/') for t in full_tlist]
-        modified_k = []
-        for k in all_k():
-            for t in rel_tlist:
-                if k not in modified_k:
-                    if rename_t_in_k(k,t,rel_dest,recurse=False):
-                        modified_k.append(k)
-                else:
-                    remove_t_in_k (k,t,recurse=False)
+        if update_K:
+            # relative versions
+            t_dir = os.path.join(config.rad_dir,'transcript')
+            rel_dest = full_dest.replace(t_dir,'').lstrip('/')
+            rel_tlist = [t.replace(t_dir,'').lstrip('/') for t in full_tlist]
+            modified_k = []
+            for k in all_k():
+                for t in rel_tlist:
+                    if k not in modified_k:
+                        if rename_t_in_k(k,t,rel_dest,recurse=False):
+                            modified_k.append(k)
+                    else:
+                        remove_t_in_k (k,t,recurse=False)
         if delete_combined:
             for t in tlist:
                 delete(t,update_k=False)
