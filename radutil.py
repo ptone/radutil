@@ -356,7 +356,7 @@ def check_t(t):
     # line ending check in its own func
     return not checksums(t)
 
-def check_k(K,output=sys.stdout,error=sys.stderr):
+def check_k(K,output=sys.stdout,error=sys.stderr,endings_only=False):
     """
     checks for errors in a command file
     
@@ -387,12 +387,14 @@ def check_k(K,output=sys.stdout,error=sys.stderr):
                     msg = "%s is not terminated with a carriage return" % t
                     errors.append(msg)
                     error.write(msg + '\n')
-                try:
-                    checksums(t,output=output,error=error,opts=['-iq'])
-                except RuntimeError:
-                    msg = "%s failed to verify" % t
-                    errors.append(msg)
-                    error.write(msg + '\n')
+                else:
+                    if not endings_only:
+                        try:
+                            checksums(t,output=output,error=error,opts=['-iq'])
+                        except RuntimeError:
+                            msg = "%s failed to verify" % t
+                            errors.append(msg)
+                            error.write(msg + '\n')
     return errors
     
 def ending_ok(partial):
