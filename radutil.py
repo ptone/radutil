@@ -177,7 +177,6 @@ def remove_k_in_k(k,k_old,recurse=True):
 
 
 def rename(t,new_name,update_k=True):
-    # @@ need to make this generic for T and K files
     """moves or renames transcript/command file and any associated file storage
     
     default is to also do a find and replace of all occurences of old name in command files
@@ -371,7 +370,9 @@ def check_k(K,output=sys.stdout,error=sys.stderr,endings_only=False):
         try:
             k_file = get_full_path(this_k)
         except ValueError,e:
-            errors.append(str(e))
+            msg = str(e)
+            errors.append(msg)
+            error.write(msg + '\n')
         else:
             if not ending_ok(k_file):
                 msg = "%s is not terminated with a carriage return" % k
