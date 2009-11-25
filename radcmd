@@ -109,9 +109,10 @@ def checkin(*args):
 
 def check(*args):
     """check validity of k or t file"""
+    args = list(args)
     if 'endings_only' in args:
         endings_only = True
-        del(args[indexof('endings_only',args)])
+        del(args[args.index('endings_only')])
     else:
         endings_only = False
     if len(args) > 1:
