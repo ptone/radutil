@@ -366,36 +366,32 @@ def check_k(K,output=sys.stdout,error=sys.stderr,endings_only=False):
     
     """
     errors = []
+    def add_error(msg):
+        errors.append(msg)
+        error.write(msg + '\n')
+        
     for this_k, sub_k, these_t, these_e in walk_K(K):
         try:
             k_file = get_full_path(this_k)
         except ValueError,e:
-            msg = str(e)
-            errors.append(msg)
-            error.write(msg + '\n')
+            add_error(str(e))
         else:
             if not ending_ok(k_file):
-                msg = "%s is not terminated with a carriage return" % k
-                errors.append(msg)
-                error.write(msg + '\n')
+                add_error("%s is not terminated with a carriage return" % k)
         for t in these_t:
             try:
                 t_file = get_full_path(t)
             except ValueError,e:
-                errors.append(str(e))
+                add_error(str(e))
             else:
                 if not ending_ok(t_file):
-                    msg = "%s is not terminated with a carriage return" % t
-                    errors.append(msg)
-                    error.write(msg + '\n')
+                    add_error("%s is not terminated with a carriage return" % t)
                 else:
                     if not endings_only:
                         try:
                             checksums(t,output=output,error=error,opts=['-iq'])
                         except RuntimeError:
-                            msg = "%s failed to verify" % t
-                            errors.append(msg)
-                            error.write(msg + '\n')
+                            add_error("%s failed to verify" % t)
     return errors
     
 def ending_ok(partial):
