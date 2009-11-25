@@ -106,7 +106,25 @@ def checkin(*args):
     else:
         for t in transcripts:
             radutil.checkin(t, update=update)
-            
+
+def check(*args):
+    """check validity of k or t file"""
+    if len(args) > 1:
+        raise ValueError ("Only one item may be checked at a time")            
+    f = radutil.get_full_path(args[0])
+    
+    if f.lower().endswith('.t'):
+        if not radutil.ending_ok(f):
+            print "%s is not terminated with a carriage return" % f)
+            sys.exit(1)
+        try:
+            radutil.checksums(f,output='/dev/null')
+        except RuntimeError:
+            print "%s failed to verify" % f
+    elif f.lower().endswith('.k'):
+        errors = check_k(f,output='/dev/null',error=sys.stdout)
+        print "%s errors found" % len(errors)
+        
 vocab = {
     'delete':(delete,['direct']),
     'undelete':(undelete,['direct']),
@@ -114,7 +132,8 @@ vocab = {
     'remove':(remove,['direct'],['command_file']),
     'swap':(swap,['old','new']),
     'combine':(combine,['args']),
-    'checkin':(checkin,[('all','list','direct')],['update'])
+    'checkin':(checkin,[('all','list','direct')],['update']),
+    'check':(check,['direct']),
     
 }
 
