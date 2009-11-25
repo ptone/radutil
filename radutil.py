@@ -105,10 +105,12 @@ def _rename_or_remove_x_in_k(k,old,new=None,recurse=True,remove=False):
     if not (remove or new):
         raise ValueError ("No replacement name provided")
     for this_k, sub_k, these_t, these_e in walk_K(k):
-        if old.lower().endswith('k'):
+        if old.lower().endswith('.k'):
             subs = sub_k
-        elif old.lower().endswith('t'):
+        elif old.lower().endswith('.t'):
             subs = these_t
+        else:
+            raise ValueError ("'old' name not a valid radmind file to search")
         if old in subs:
             k_file = get_full_path(this_k)
             f = open(k_file)
@@ -351,6 +353,7 @@ def sum_command(K,human=False):
 def check_t(t):
     # should just be a call to lcksum validate...
     # could use a function to just verify exists
+    # line ending check in its own func
     return not checksums(t)
 
 def check_k(K):
@@ -363,27 +366,25 @@ def check_k(K):
     checks that every transcript file referenced exists
     
     """
-    parsed = parse_K(K)
     errors = []
-    for k in parsed['command']:
+    for this_k, sub_k, these_t, these_e in walk_K(K):
         try:
-            k_file = get_full_path(k)
+            k_file = get_full_path(this_k)
         except ValueError,e:
             errors.append(str(e))
         else:
             if not ending_ok(k_file):
                 errors.append("%s is not terminated with a carriage return" % k)
-            
-    for t in parsed['transcript']:
-        try:
-            t_file = get_full_path(t)
-        except ValueError,e:
-            errors.append(str(e))
-        else:
-            if not ending_ok(t_file):
-                errors.append("%s is not terminated with a carriage return" % t)
-            if not check_t(t):
-                errors.append ("%s failed to verify" % t)
+        for t in these_t:
+            try:
+                t_file = get_full_path(t)
+            except ValueError,e:
+                errors.append(str(e))
+            else:
+                if not ending_ok(t_file):
+                    errors.append("%s is not terminated with a carriage return" % t)
+                if not check_t(t):
+                    errors.append ("%s failed to verify" % t)
     return errors
     
 def ending_ok(partial):

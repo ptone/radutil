@@ -114,7 +114,7 @@ vocab = {
     'remove':(remove,['direct'],['command_file']),
     'swap':(swap,['old','new']),
     'combine':(combine,['args']),
-    'checkin':(checkin,[('all','direct')],['update'])
+    'checkin':(checkin,[('all','list','direct')],['update'])
     
 }
 
