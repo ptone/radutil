@@ -494,8 +494,10 @@ def checksums(path,update=False,output=sys.stdout,error=sys.stderr):
     if not update:
         opts.append('-n')
     cmd.extend(opts)
+    path = get_full_path(path)
     cmd.append(path)
     process = Popen(' '.join(cmd),shell=True,stdout=output,stderr=error)
+    # need to pipe output and error properly here?
     o,e = process.communicate()
     if process.returncode:
         if (update and process.returncode > 1):
