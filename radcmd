@@ -109,11 +109,11 @@ def checkin(*args):
 
 def check(*args):
     """check validity of k or t file"""
-    if 'ending_only' in args:
-        ending_only = True
-        del(args[indexof('ending_only',args)])
+    if 'endings_only' in args:
+        endings_only = True
+        del(args[indexof('endings_only',args)])
     else:
-        ending_only = False
+        endings_only = False
     if len(args) > 1:
         raise ValueError ("Only one item may be checked at a time")            
     f = radutil.get_full_path(args[0])
@@ -127,7 +127,7 @@ def check(*args):
         except RuntimeError:
             print "%s failed to verify" % f
     elif f.lower().endswith('.k'):
-        errors = radutil.check_k(f,error=sys.stdout,ending_only=ending_only)
+        errors = radutil.check_k(f,error=sys.stdout,endings_only=endings_only)
         print "%s errors found" % len(errors)
     dev_null.close()
     sys.exit(len(errors))
