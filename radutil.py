@@ -383,7 +383,9 @@ def check_k(K):
             else:
                 if not ending_ok(t_file):
                     errors.append("%s is not terminated with a carriage return" % t)
-                if not check_t(t):
+                try:
+                    check_t(t)
+                except RuntimeError:
                     errors.append ("%s failed to verify" % t)
     return errors
     
