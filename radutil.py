@@ -376,7 +376,7 @@ def check_k(K,output=sys.stdout,error=sys.stderr):
             if not ending_ok(k_file):
                 msg = "%s is not terminated with a carriage return" % k
                 errors.append(msg)
-                error.write(msg)
+                error.write(msg + '\n')
         for t in these_t:
             try:
                 t_file = get_full_path(t)
@@ -386,13 +386,13 @@ def check_k(K,output=sys.stdout,error=sys.stderr):
                 if not ending_ok(t_file):
                     msg = "%s is not terminated with a carriage return" % t
                     errors.append(msg)
-                    error.write(msg)
+                    error.write(msg + '\n')
                 try:
-                    check_t(t)
+                    checksums(t,output=output,error=error,opts=['-iq'])
                 except RuntimeError:
                     msg = "%s failed to verify" % t
                     errors.append(msg)
-                    error.write(msg)
+                    error.write(msg + '\n')
     return errors
     
 def ending_ok(partial):
@@ -492,9 +492,9 @@ def list_pending():
     """
     return os.listdir(os.path.join(config.rad_dir,'tmp','transcript'))
 
-def checksums(path,update=False,output=sys.stdout,error=sys.stderr):
+def checksums(path,update=False,output=sys.stdout,error=sys.stderr,opts=['-%', '-iq']):
     cmd = ['lcksum']
-    opts = ['-%', '-iq','-c'+config.checksum]
+    opts.append('-c'+config.checksum)
     if not config.case_sensitive:
         opts.append('-I')
     if not update:

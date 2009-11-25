@@ -109,22 +109,25 @@ def checkin(*args):
 
 def check(*args):
     """check validity of k or t file"""
+    dev_null = output=open('/dev/null','w')
     if len(args) > 1:
         raise ValueError ("Only one item may be checked at a time")            
     f = radutil.get_full_path(args[0])
     
     if f.lower().endswith('.t'):
         if not radutil.ending_ok(f):
-            print "%s is not terminated with a carriage return" % f)
+            print "%s is not terminated with a carriage return" % f
             sys.exit(1)
         try:
-            radutil.checksums(f,output='/dev/null')
+            radutil.checksums(f,output=dev_null)
         except RuntimeError:
             print "%s failed to verify" % f
     elif f.lower().endswith('.k'):
-        errors = check_k(f,output='/dev/null',error=sys.stdout)
+        errors = radutil.check_k(f,dev_null,error=sys.stdout)
         print "%s errors found" % len(errors)
-        
+    dev_null.close()
+    sys.exit(len(errors))
+    
 vocab = {
     'delete':(delete,['direct']),
     'undelete':(undelete,['direct']),
