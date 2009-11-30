@@ -431,7 +431,7 @@ def get_full_path(partial,loc=False,trash=False,must_exist=True):
     
     # this may not be the best way to do it, 
     # but want to provide for path completion when using CLI tool:
-    for pre in ('tmp/','transcript/'):
+    for pre in ('tmp/','transcript/','command/'):
         if partial.startswith(pre):
             partial = partial[len(pre):]
     
