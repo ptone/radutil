@@ -50,15 +50,17 @@ import os
 from optparse import OptionParser,OptionGroup
 import radutil
 
-def delete (t_k):
+DEBUG=False
+
+def delete(t_k):
     radutil.delete(t_k)
     print '%s moved to trash' % t_k
 
-def undelete (t_k):
+def undelete(t_k):
     radutil.undelete(t_k)
     print '%s restored from trash' % t_k
     
-def rename (old,new):
+def rename(old,new):
     radutil.rename(old,new)
     print '%s renamed' % old
     
@@ -71,8 +73,12 @@ def remove(*args):
         print 'all occurences of %s removed from command files' % args[0]
     else:
         raise RuntimeError ("Invalid number of arguments for remove, must be 1 or 2")
-        
-def swap():
+
+def sum_item(t_k):
+    result = radutil.sum_item(t_k,human=True)
+    print "%s: %s" % (t_k,result)
+    
+def swap(*args):
     if len(args) == 2:
         radutil.swap(*args)
         print '%s swapped for %s' % args
@@ -110,6 +116,7 @@ def checkin(*args):
 def check(*args):
     """check validity of k or t file"""
     args = list(args)
+    errors=[]
     if 'endings_only' in args:
         endings_only = True
         del(args[args.index('endings_only')])
@@ -118,40 +125,120 @@ def check(*args):
     if len(args) > 1:
         raise ValueError ("Only one item may be checked at a time")            
     f = radutil.get_full_path(args[0])
-    dev_null = output=open('/dev/null','w')
+    if DEBUG:
+        output = sys.stdout
+    else:
+        output=open('/dev/null','w')
     if f.lower().endswith('.t'):
         if not radutil.ending_ok(f):
             print "%s is not terminated with a carriage return" % f
             sys.exit(1)
         try:
-            radutil.checksums(f,output=dev_null)
+            radutil.checksums(f,output=output)
         except RuntimeError:
             print "%s failed to verify" % f
     elif f.lower().endswith('.k'):
         errors = radutil.check_k(f,error=sys.stdout,endings_only=endings_only)
-        print "%s errors found" % len(errors)
-    dev_null.close()
+        
+    if not DEBUG:
+        output.close()
+    print "%s errors found" % len(errors)
     sys.exit(len(errors))
     
 vocab = {
-    'delete':(delete,['direct']),
-    'undelete':(undelete,['direct']),
-    'rename':(rename,['direct','new_name']),
-    'remove':(remove,['direct'],['command_file']),
-    'swap':(swap,['old','new']),
-    'combine':(combine,['args']),
-    'checkin':(checkin,[('all','list','direct')],['update']),
-    'check':(check,['direct']),
+    'delete':delete,
+    'undelete':undelete,
+    'rename':rename,
+    'remove':remove,
+    'swap':swap,
+    'combine':combine,
+    'checkin':checkin,
+    'check':check,
+    'sum':sum_item,
     
 }
 
 def main(argv=None):
     parser = OptionParser()
-    parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
-                      help="display all verbose output",default=False)
+    # parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
+    #                   help="display all verbose output",default=False)
     # parse options: metavar, default action: store
     parser.usage = """
-        help message
+radcmd <verb> [options]
+
+The following verbs are handled:
+
+check <t/k> [endings_only]
+    - checks a transcript file, or a command file and all its decendants
+    - by default checks that each file ends with a empty line (required by radmind)
+        and also checks that transcripts verify with lcksum
+    - optionally can check endings only
+
+sum <t/k>
+    - sums either a transcript file, or a command file (with all decendants)
+
+checkin [update] <list | all | transcript>
+    - list pending transcripts, or check in a 
+        specific transcript or all pending transcripts
+    - optionally update checksums before moving out of temp folder
+    
+rename <oldname> <newname>
+    - rename a transcript or command file
+    - renames files on disk, and also finds and updates 
+        any occurence in command files
+    
+remove <t/k> [command file]
+    - removes references to T or K file from all command files, 
+        or optionally a specific command file
+    
+delete <t/k>
+    - moves transcript and associated files, or command file to 
+        a "trash" folder in the radmind directory
+    - will also remove any references to that item in command files
+    - preserves relative path in trash
+    
+undelete <t/k>
+    - restores a transcript and associated files, 
+        or command file to transcript or command folder
+    - must use same relative path that was used when deleting, 
+        and restores to this relative path
+        ie radcmd delete subdir/foo.T must be followed with undelete subdir/foo.T
+    
+swap <a> <b>
+    - replaces any occurence of a with b in command files.  a may be a transcript or command file
+
+rename <old> <new>
+    - renames a transcript or command file
+    - can also move into a subdirectory which is created if it doesn't exist
+    - will update command files to reflect the new name
+    
+combine <t1> <tN...> <destination>
+    combines or merges 2 or more transcripts into destination
+    if destination exists, transcripts are merged, 
+    otherwise a new combined transcript is created at destination.
+    
+    Transcript precedence is REVERSED from that in lmerge, so
+    
+    transcriptA > transcriptB > transcriptC destination
+    
+    A is lower precedence than C
+    
+    or:
+    
+    radcmd combine iWorkUpdate01 iWorkUpdate02 iWorkUpdate03 iWorkUpdate
+    
+    if iWorkUpdate exists, the other transcripts will be merged into it, 
+    otherwise it will be created
+    
+    The way command files are updated after a combination varies 
+    depending on whether the destination existed (merge) or not (combine).
+    
+    If the destination existed(merge), it is left in place, any input transcripts are removed
+    
+    When a destination is created(combine), the first found occurence of an input 
+    transcript is replace with the destination and the others are removed from command files
+    
+
     """
     (options, args) = parser.parse_args()
 #    if options.some_option != desired_value:
@@ -162,9 +249,17 @@ def main(argv=None):
     verb = args[0]
     del(args[0])
     if verb in vocab:
-        vocab[verb][0](*tuple(args))
+        try:
+            vocab[verb](*tuple(args))
+        except Exception,e:
+            if DEBUG:
+                raise
+            else:
+                parser.error (e)
+            # sys.stderr.write('%s\n' % e)
+            # sys.stderr.flush()
     else:
         parser.error('%s verb not understood' % verb)
-        
+    sys.exit(0)
 if __name__ == "__main__":
     sys.exit(main())

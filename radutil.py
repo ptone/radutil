@@ -309,6 +309,12 @@ def sort(f,case_insensitive=True,in_place=True,outfile=None):
     if os.path.exists(outfile) and in_place:
         os.remove(infile)
 
+def sum_item (f,human=False):
+    if is_load(f):
+        return sum_transcript(f,human=human)
+    else:
+        return sum_command (f,human=human)
+
 def sum_transcript(T,human=False):
     """
     Sums the files listed in a transcript
@@ -586,6 +592,9 @@ def combine(tlist,dest,delete_combined=True,update_K=True):
     """
     full_tlist = [get_full_path(t) for t in tlist]
     full_dest = get_full_path(dest,must_exist=False)
+    # important, choosing to reverse the order of meaning for transcripts from lmerge
+    # lowest precedence first - opposite of lmerge
+    full_tlist.reverse()
     if os.path.exists(full_dest):
         return merge(tlist,dest,delete_combined=delete_combined,update_K=update_K)
         # raise RuntimeError ("Target transcript already exists")
